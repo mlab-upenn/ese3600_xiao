@@ -6,6 +6,7 @@
 idf_component_register(
   SRCS "main.cc" "main_functions.cc" "audio_provider.cc" "feature_provider.cc"
        "recognize_commands.cc" "command_responder.cc" "model.cc" "ringbuf.c"
+       "micro_features_generator.cc"
   INCLUDE_DIRS "."
   REQUIRES esp-tflite-micro
 )

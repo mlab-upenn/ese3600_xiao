@@ -92,11 +92,14 @@ static void i2s_init(void) {
       .fixed_mclk = -1,
   };
   i2s_pin_config_t pin_config = {
-      .bck_io_num = -1,    // IIS_SCLK
-      .ws_io_num = 42,     // IIS_LCLK
+      .bck_io_num = 41,    // PDM clock on Seeed XIAO ESP32S3
+      .ws_io_num = 42,     // Not used in PDM mode but still needs a valid GPIO
       .data_out_num = -1,  // IIS_DSIN
-      .data_in_num = 41,   // IIS_DOUT
+      .data_in_num = 2,    // PDM data line from on-board mic
   };
+#if CONFIG_IDF_TARGET_ESP32S3
+  i2s_config.bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT;
+#endif
 
   esp_err_t ret = 0;
   ret = i2s_driver_install(i2s_port, &i2s_config, 0, NULL);
@@ -179,7 +182,9 @@ TfLiteStatus InitAudioRecording() {
 TfLiteStatus GetAudioSamples1(int* audio_samples_size, int16_t** audio_samples)
 {
   if (!g_is_audio_initialized) {
+    ESP_LOGI(TAG, "About to init audio");
     TfLiteStatus init_status = InitAudioRecording();
+    ESP_LOGI(TAG, "InitAudioRecording returned %d", init_status);
     if (init_status != kTfLiteOk) {
       return init_status;
     }

@@ -66,6 +66,7 @@ TfLiteStatus FeatureProvider::PopulateFeatureData(
   if (is_first_run_) {
     TfLiteStatus init_status = InitializeMicroFeatures();
     if (init_status != kTfLiteOk) {
+      ESP_LOGE(TAG, "InitializeMicroFeatures failed: %d", init_status);
       return init_status;
     }
     ESP_LOGI(TAG, "InitializeMicroFeatures successful");
