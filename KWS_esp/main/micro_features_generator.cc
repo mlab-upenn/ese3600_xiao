@@ -41,7 +41,7 @@ constexpr int kAudioSampleDurationCount =
     kFeatureDurationMs * kAudioSampleFrequency / 1000;
 constexpr int kAudioSampleStrideCount =
     kFeatureStrideMs * kAudioSampleFrequency / 1000;
-using AudioPreprocessorOpResolver = tflite::MicroMutableOpResolver<20>;
+using AudioPreprocessorOpResolver = tflite::MicroMutableOpResolver<18>;
 }  // namespace
 
 TfLiteStatus RegisterOps(AudioPreprocessorOpResolver& op_resolver) {
@@ -63,7 +63,6 @@ TfLiteStatus RegisterOps(AudioPreprocessorOpResolver& op_resolver) {
   TF_LITE_ENSURE_STATUS(op_resolver.AddFilterBankSpectralSubtraction());
   TF_LITE_ENSURE_STATUS(op_resolver.AddPCAN());
   TF_LITE_ENSURE_STATUS(op_resolver.AddFilterBankLog());
-  TF_LITE_ENSURE_STATUS(op_resolver.AddConv2D());
   return kTfLiteOk;
 }
 
@@ -80,11 +79,7 @@ TfLiteStatus InitializeMicroFeatures() {
   }
 
   static AudioPreprocessorOpResolver op_resolver;
-  TfLiteStatus register_status = RegisterOps(op_resolver);
-  if (register_status != kTfLiteOk) {
-    MicroPrintf("RegisterOps failed for Feature provider model.");
-    return register_status;
-  }
+  RegisterOps(op_resolver);
 
   static tflite::MicroInterpreter static_interpreter(model, op_resolver, g_arena, kArenaSize);
   interpreter = &static_interpreter;

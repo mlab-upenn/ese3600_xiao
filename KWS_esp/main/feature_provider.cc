@@ -18,7 +18,9 @@ limitations under the License.
 
 #include <esp_log.h>
 
+#include <cmath>
 #include <cstring>
+#include <limits>
 #include "feature_provider.h"
 
 #include "audio_provider.h"
@@ -66,7 +68,6 @@ TfLiteStatus FeatureProvider::PopulateFeatureData(
   if (is_first_run_) {
     TfLiteStatus init_status = InitializeMicroFeatures();
     if (init_status != kTfLiteOk) {
-      ESP_LOGE(TAG, "InitializeMicroFeatures failed: %d", init_status);
       return init_status;
     }
     ESP_LOGI(TAG, "InitializeMicroFeatures successful");
@@ -108,6 +109,7 @@ TfLiteStatus FeatureProvider::PopulateFeatureData(
   // Any slices that need to be filled in with feature data have their
   // appropriate audio data pulled, and features calculated for that slice.
   if (slices_needed > 0) {
+    static uint32_t stats_counter = 0;
     for (int new_slice = slices_to_keep; new_slice < kFeatureCount;
          ++new_slice) {
       const int new_step = (current_step - kFeatureCount + 1) + new_slice;
@@ -122,6 +124,29 @@ TfLiteStatus FeatureProvider::PopulateFeatureData(
         MicroPrintf("Audio data size %d too small, want %d",
                     audio_samples_size, kMaxAudioSampleSize);
         return kTfLiteError;
+      }
+      // Periodically log audio statistics to verify live capture quality.
+      if ((stats_counter++ % 25) == 0 && audio_samples != nullptr) {
+        int16_t min_sample = std::numeric_limits<int16_t>::max();
+        int16_t max_sample = std::numeric_limits<int16_t>::min();
+        int64_t sum_squares = 0;
+        for (int i = 0; i < audio_samples_size; ++i) {
+          const int16_t sample = audio_samples[i];
+          if (sample < min_sample) {
+            min_sample = sample;
+          }
+          if (sample > max_sample) {
+            max_sample = sample;
+          }
+          sum_squares += static_cast<int32_t>(sample) * sample;
+        }
+        const float rms =
+            (audio_samples_size > 0)
+                ? std::sqrt(static_cast<float>(sum_squares) /
+                            static_cast<float>(audio_samples_size))
+                : 0.0f;
+        ESP_LOGI(TAG, "Audio stats min:%d max:%d rms:%.1f", min_sample,
+                 max_sample, static_cast<double>(rms));
       }
       int8_t* new_slice_data = feature_data_ + (new_slice * kFeatureSize);
       // size_t num_samples_read;

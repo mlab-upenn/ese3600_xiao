@@ -25,6 +25,7 @@ limitations under the License.
 // clang-format on
 
 #include "driver/i2s.h"
+#include "driver/i2s_pdm.h"
 #include "esp_log.h"
 #include "esp_spi_flash.h"
 #include "esp_system.h"
@@ -56,95 +57,73 @@ constexpr int32_t new_samples_to_get =
     (kFeatureStrideMs * (kAudioSampleFrequency / 1000));
 
 const int32_t kAudioCaptureBufferSize = 40000;
-const int32_t i2s_bytes_to_read = 3200;
+const int32_t pdm_bytes_to_read = 3200;
 
 namespace {
 int16_t g_audio_output_buffer[kMaxAudioSampleSize * 32];
 bool g_is_audio_initialized = false;
 int16_t g_history_buffer[history_samples_to_keep];
 
-#if !NO_I2S_SUPPORT
-uint8_t g_i2s_read_buffer[i2s_bytes_to_read] = {};
-#if CONFIG_IDF_TARGET_ESP32
-i2s_port_t i2s_port = I2S_NUM_1; // for esp32-eye
-#else
-i2s_port_t i2s_port = I2S_NUM_0; // for esp32-s3-eye
-#endif
-#endif
+uint8_t g_pdm_read_buffer[pdm_bytes_to_read] = {};
+// i2s_port_t i2s_port = I2S_NUM_0;
+i2s_chan_handle_t g_rx_chan = nullptr;
+gpio_num_t pdm_gpio_clk = GPIO_NUM_42;
+gpio_num_t pdm_gpio_din = GPIO_NUM_41;
 }  // namespace
 
-#if NO_I2S_SUPPORT
-  // nothing to be done here
-#else
-static void i2s_init(void) {
-  // Start listening for audio: MONO @ 16KHz
-  i2s_config_t i2s_config = {
-      .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM),
-      .sample_rate = 16000,
-      .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-      .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-      .communication_format = I2S_COMM_FORMAT_I2S,
-      .intr_alloc_flags = 0,
-      .dma_buf_count = 3,
-      .dma_buf_len = 300,
-      .use_apll = false,
-      .tx_desc_auto_clear = false,
-      .fixed_mclk = -1,
-  };
-  i2s_pin_config_t pin_config = {
-      .bck_io_num = 41,    // PDM clock on Seeed XIAO ESP32S3
-      .ws_io_num = 42,     // Not used in PDM mode but still needs a valid GPIO
-      .data_out_num = -1,  // IIS_DSIN
-      .data_in_num = 2,    // PDM data line from on-board mic
-  };
-#if CONFIG_IDF_TARGET_ESP32S3
-  i2s_config.bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT;
-#endif
+static void pdm_init(void) {
+  // 1) Create an RX channel
+  if (g_rx_chan != nullptr) {
+    return;
+  }
+  i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
+  chan_cfg.dma_desc_num  = 3;    // small, like Arduino defaults
+  chan_cfg.dma_frame_num = 256;  // frames per DMA node
+  ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, NULL, &g_rx_chan));
 
-  esp_err_t ret = 0;
-  ret = i2s_driver_install(i2s_port, &i2s_config, 0, NULL);
-  if (ret != ESP_OK) {
-    ESP_LOGE(TAG, "Error in i2s_driver_install");
-  }
-  ret = i2s_set_pin(i2s_port, &pin_config);
-  if (ret != ESP_OK) {
-    ESP_LOGE(TAG, "Error in i2s_set_pin");
-  }
-
-  ret = i2s_zero_dma_buffer(i2s_port);
-  if (ret != ESP_OK) {
-    ESP_LOGE(TAG, "Error in initializing dma buffer with 0");
-  }
+  // 2) Configure PDM RX: 16 kHz, 16-bit, mono; pins: CLK=42, DIN=41
+  i2s_pdm_rx_config_t pdm_cfg = {
+      .clk_cfg = I2S_PDM_RX_CLK_DEFAULT_CONFIG(16000),
+      .slot_cfg = I2S_PDM_RX_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
+                                                  I2S_SLOT_MODE_MONO),
+      .gpio_cfg = {
+          .clk = pdm_gpio_clk,
+          .din = pdm_gpio_din,
+          .invert_flags = { .clk_inv = false },
+      },
+  };
+  ESP_ERROR_CHECK(i2s_channel_init_pdm_rx_mode(g_rx_chan, &pdm_cfg));
+  ESP_ERROR_CHECK(i2s_channel_enable(g_rx_chan));
 }
-#endif
+
 
 static void CaptureSamples(void* arg) {
-#if NO_I2S_SUPPORT
-  ESP_LOGE(TAG, "i2s support not available on C3 chip for IDF < 4.4.0");
-#else
-  size_t bytes_read = i2s_bytes_to_read;
-  i2s_init();
+  size_t bytes_read = pdm_bytes_to_read;
+  pdm_init();
   while (1) {
-    /* read 100ms data at once from i2s */
-    i2s_read(i2s_port, (void*)g_i2s_read_buffer, i2s_bytes_to_read,
-             &bytes_read, pdMS_TO_TICKS(100));
+    size_t bytes_read = 0;
 
-    if (bytes_read <= 0) {
-      ESP_LOGE(TAG, "Error in I2S read : %d", bytes_read);
+    esp_err_t err = i2s_channel_read(g_rx_chan, g_pdm_read_buffer,
+                                     pdm_bytes_to_read, &bytes_read,
+                                     pdMS_TO_TICKS(50));
+    if (err == ESP_ERR_TIMEOUT) {
+      ESP_LOGW(TAG, "I2S read timed out");
+      continue;
+    } else if (err != ESP_OK) {
+      ESP_LOGE(TAG, "I2S read failed: %s", esp_err_to_name(err));
+      continue;
+    }
+
+    if (bytes_read == 0) {
+      ESP_LOGW(TAG, "No I2S data available");
+      continue;
     } else {
-      if (bytes_read < i2s_bytes_to_read) {
+      if (bytes_read < pdm_bytes_to_read) {
         ESP_LOGW(TAG, "Partial I2S read");
       }
-#if CONFIG_IDF_TARGET_ESP32S3
-      // rescale the data
-      for (int i = 0; i < bytes_read / 4; ++i) {
-        ((int16_t *) g_i2s_read_buffer)[i] = ((int32_t *) g_i2s_read_buffer)[i] >> 14;
-      }
-      bytes_read = bytes_read / 2;
-#endif
       /* write bytes read by i2s into ring buffer */
       int bytes_written = rb_write(g_audio_capture_buffer,
-                                   (uint8_t*)g_i2s_read_buffer, bytes_read, pdMS_TO_TICKS(100));
+                                   (uint8_t*)g_pdm_read_buffer, bytes_read, pdMS_TO_TICKS(100));
       if (bytes_written != bytes_read) {
         ESP_LOGI(TAG, "Could only write %d bytes out of %d", bytes_written, bytes_read);
       }
@@ -159,7 +138,6 @@ static void CaptureSamples(void* arg) {
       }
     }
   }
-#endif
   vTaskDelete(NULL);
 }
 
@@ -182,9 +160,7 @@ TfLiteStatus InitAudioRecording() {
 TfLiteStatus GetAudioSamples1(int* audio_samples_size, int16_t** audio_samples)
 {
   if (!g_is_audio_initialized) {
-    ESP_LOGI(TAG, "About to init audio");
     TfLiteStatus init_status = InitAudioRecording();
-    ESP_LOGI(TAG, "InitAudioRecording returned %d", init_status);
     if (init_status != kTfLiteOk) {
       return init_status;
     }

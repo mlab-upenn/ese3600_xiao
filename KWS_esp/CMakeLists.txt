@@ -1,3 +1,4 @@
-cmake_minimum_required(VERSION 3.16.0)
+cmake_minimum_required(VERSION 3.5)
+set(EXTRA_COMPONENT_DIRS test_data)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(KWS_esp VERSION 1.0.0)
+project(micro_speech)
