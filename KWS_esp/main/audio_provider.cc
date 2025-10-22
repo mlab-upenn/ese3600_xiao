@@ -105,7 +105,7 @@ static void CaptureSamples(void* arg) {
 
     esp_err_t err = i2s_channel_read(g_rx_chan, g_pdm_read_buffer,
                                      pdm_bytes_to_read, &bytes_read,
-                                     pdMS_TO_TICKS(50));
+                                     portMAX_DELAY);
     if (err == ESP_ERR_TIMEOUT) {
       ESP_LOGW(TAG, "I2S read timed out");
       continue;
