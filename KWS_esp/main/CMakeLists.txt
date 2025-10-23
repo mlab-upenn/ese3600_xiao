@@ -8,6 +8,7 @@ idf_component_register(
          no_micro_features_data.cc yes_micro_features_data.cc
          model.cc recognize_commands.cc command_responder.cc
          micro_features_generator.cc ringbuf.c
+         led_indicator.cc led_strip_encoder.c
     PRIV_REQUIRES spi_flash driver esp_timer test_data
     INCLUDE_DIRS "")
 

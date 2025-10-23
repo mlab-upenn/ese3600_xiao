@@ -145,8 +145,8 @@ TfLiteStatus FeatureProvider::PopulateFeatureData(
                 ? std::sqrt(static_cast<float>(sum_squares) /
                             static_cast<float>(audio_samples_size))
                 : 0.0f;
-        ESP_LOGI(TAG, "Audio stats min:%d max:%d rms:%.1f", min_sample,
-                 max_sample, static_cast<double>(rms));
+        // ESP_LOGI(TAG, "Audio stats min:%d max:%d rms:%.1f", min_sample,
+                //  max_sample, static_cast<double>(rms));
       }
       int8_t* new_slice_data = feature_data_ + (new_slice * kFeatureSize);
       // size_t num_samples_read;
