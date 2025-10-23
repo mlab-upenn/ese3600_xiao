@@ -21,10 +21,13 @@ limitations under the License.
 
 #include "audio_provider.h"
 #include "command_responder.h"
+#include "driver/gpio.h"
 #include "feature_provider.h"
 #include "micro_model_settings.h"
 #include "model.h"
 #include "recognize_commands.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/core/c/common.h"
@@ -40,6 +43,7 @@ TfLiteTensor* model_input = nullptr;
 FeatureProvider* feature_provider = nullptr;
 RecognizeCommands* recognizer = nullptr;
 int32_t previous_time = 0;
+constexpr gpio_num_t kIndicatorGpio = GPIO_NUM_21;
 
 // Create an area of memory to use for input, output, and intermediate arrays.
 // The size of this will depend on the model you're using, and may need to be
@@ -117,6 +121,13 @@ void setup() {
   recognizer = &static_recognizer;
 
   previous_time = 0;
+
+  // Configure the onboard indicator LED (GPIO 21) as output and turn it off.
+  gpio_config_t io_conf = {};
+  io_conf.mode = GPIO_MODE_OUTPUT;
+  io_conf.pin_bit_mask = 1ULL << kIndicatorGpio;
+  gpio_config(&io_conf);
+  gpio_set_level(kIndicatorGpio, 0);
 }
 
 // The name of this function is important for Arduino compatibility.
@@ -169,6 +180,9 @@ void loop() {
   if (max_result > 0.8f) {
     MicroPrintf("Detected %7s, score: %.2f", kCategoryLabels[max_idx],
         static_cast<double>(max_result));
+    gpio_set_level(kIndicatorGpio, 1);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    gpio_set_level(kIndicatorGpio, 0);
   }
 #else
   // Determine whether a command was recognized based on the output of inference
