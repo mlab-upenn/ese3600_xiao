@@ -1,11 +1,13 @@
-/* Fixed version - includes ALL common operators
+/* 
    Using MicroMutableOpResolver with all standard ops
+   + BUZZER for Keyword 1 and Keyword 2
 */
 
 #include "main_functions.h"
 #include "audio_provider.h"
 #include "command_responder.h"
 #include "driver/gpio.h"
+#include "driver/ledc.h"  // Added this for buzzer
 #include "feature_provider.h"
 #include "micro_model_settings.h"
 #include "model.h"
@@ -18,6 +20,15 @@
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
+
+#define BUZZER_GPIO      GPIO_NUM_4  // A3 on expansion board
+#define LEDC_TIMER       LEDC_TIMER_0
+#define LEDC_MODE        LEDC_LOW_SPEED_MODE
+#define LEDC_CHANNEL     LEDC_CHANNEL_0
+#define LEDC_DUTY_RES    LEDC_TIMER_8_BIT
+#define LEDC_DUTY        128
+#define FREQ_GO          1000  // High beep for Keyword 1
+#define FREQ_STOP        500   // Low beep for Keyword 2
 
 namespace {
 const tflite::Model* model = nullptr;
@@ -33,6 +44,37 @@ constexpr int kTensorArenaSize = 50 * 1024;  // 50KB
 uint8_t tensor_arena[kTensorArenaSize];
 int8_t feature_buffer[kFeatureElementCount];
 int8_t* model_input_buffer = nullptr;
+}
+
+void buzzer_init() {
+  ledc_timer_config_t ledc_timer = {
+    .speed_mode       = LEDC_MODE,
+    .duty_resolution  = LEDC_DUTY_RES,
+    .timer_num        = LEDC_TIMER,
+    .freq_hz          = 1000,
+    .clk_cfg          = LEDC_AUTO_CLK
+  };
+  ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+  ledc_channel_config_t ledc_channel = {
+    .gpio_num       = BUZZER_GPIO,
+    .speed_mode     = LEDC_MODE,
+    .channel        = LEDC_CHANNEL,
+    .intr_type      = LEDC_INTR_DISABLE,
+    .timer_sel      = LEDC_TIMER,
+    .duty           = 0,
+    .hpoint         = 0
+  };
+  ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+}
+
+void buzzer_tone(uint32_t frequency, uint32_t duration_ms) {
+  ledc_set_freq(LEDC_MODE, LEDC_TIMER, frequency);
+  ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, LEDC_DUTY);
+  ledc_update_duty(LEDC_MODE, LEDC_CHANNEL);
+  vTaskDelay(pdMS_TO_TICKS(duration_ms));
+  ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, 0);
+  ledc_update_duty(LEDC_MODE, LEDC_CHANNEL);
 }
 
 void setup() {
@@ -135,6 +177,12 @@ void setup() {
   gpio_config(&io_conf);
   gpio_set_level(kIndicatorGpio, 0);
   
+
+  buzzer_init();
+  MicroPrintf("Buzzer ready on GPIO4");
+  buzzer_tone(1000, 100);  // Test beep
+  vTaskDelay(pdMS_TO_TICKS(100));
+  
   MicroPrintf("Setup complete - ready to detect keywords!");
 }
 
@@ -182,6 +230,17 @@ void loop() {
   if (max_result > 0.6f) {
     MicroPrintf("Detected %7s, score: %.2f", kCategoryLabels[max_idx],
                 static_cast<double>(max_result));
+    
+    // ADD BUZZER CONTROL HERE
+    if (max_idx == 2) {
+      // Replace Keyword 1 Eg: GO = High beep
+      buzzer_tone(FREQ_GO, 300);
+      MicroPrintf("Keyword 1 - High beep!");
+    } else if (max_idx == 3) {
+      // Replace Keyword 2 Eg: STOP = Low beep
+      buzzer_tone(FREQ_STOP, 300);
+      MicroPrintf("Keyword 2 - Low beep!");
+    }
     
     int num_blinks = 0;
     if (max_idx == 2) num_blinks = 1;      // First keyword
