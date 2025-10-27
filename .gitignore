@@ -1,0 +1,19 @@
+# macOS cache
+.DS_Store
+
+# IDE and build files
+KWS_esp/.cache/
+KWS_esp/.vscode/
+KWS_esp/build/
+KWS_esp/dependencies.lock
+KWS_esp/esp-tflite-micro/
+KWS_esp/managed_components/
+KWS_esp/sdkconfig
+KWS_esp/sdkconfig.seeed_xiao_esp32s3
+TFLM_tutorial/.pio/
+TFLM_tutorial/managed_components/
+
+# Optional, if you don’t want Git to track its own ignore file
+KWS_esp/.gitignore
+TFLM_tutorial/.gitignore
+
