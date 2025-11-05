@@ -31,8 +31,8 @@ constexpr int kCategoryCount = 4;
 constexpr const char* kCategoryLabels[kCategoryCount] = {
     "silence",
     "unknown",
-    "go",
-    "stop",
+    "up",
+    "down",
 };
 
 #endif  // TENSORFLOW_LITE_MICRO_EXAMPLES_MICRO_SPEECH_MICRO_MODEL_SETTINGS_H_

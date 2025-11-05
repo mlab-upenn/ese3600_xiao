@@ -16,12 +16,20 @@ limitations under the License.
 #include "command_responder.h"
 #include "tensorflow/lite/micro/micro_log.h"
 
+// If OLED is used
+#include "oled_display.h"       
+#include <cstring>               
+
 // The default implementation writes out the name of the recognized command
-// to the error console. Real applications will want to take some custom
-// action instead, and should implement their own versions of this function.
+// to the error console and displays it on the OLED screen.
+// Real applications will want to take some custom action based on commands.
 void RespondToCommand(int32_t current_time, const char* found_command,
                       float score, bool is_new_command) {
   if (is_new_command) {
+    // Log to console
     MicroPrintf("Heard %s (%.4f) @%dms", found_command, score, current_time);
+    
+    // Uncomment the following to display on OLED screen
+    oled_display_command(found_command, (uint8_t)(score * 100));
   }
 }

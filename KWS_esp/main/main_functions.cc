@@ -1,17 +1,19 @@
-/* 
+/* Fixed version - includes ALL common operators
    Using MicroMutableOpResolver with all standard ops
-   + BUZZER for Keyword 1 and Keyword 2
 */
 
 #include "main_functions.h"
 #include "audio_provider.h"
 #include "command_responder.h"
 #include "driver/gpio.h"
+
 #include "driver/ledc.h"  // Added this for buzzer
+
 #include "feature_provider.h"
 #include "micro_model_settings.h"
 #include "model.h"
 #include "recognize_commands.h"
+#include "oled_display.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "tensorflow/lite/micro/system_setup.h"
@@ -20,6 +22,8 @@
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
+#include <cstring>
+#include <stdio.h>
 
 #define BUZZER_GPIO      GPIO_NUM_4  // A3 on expansion board
 #define LEDC_TIMER       LEDC_TIMER_0
@@ -27,8 +31,8 @@
 #define LEDC_CHANNEL     LEDC_CHANNEL_0
 #define LEDC_DUTY_RES    LEDC_TIMER_8_BIT
 #define LEDC_DUTY        128
-#define FREQ_GO          1000  // High beep for Keyword 1
-#define FREQ_STOP        500   // Low beep for Keyword 2
+#define FREQ_GO          1000  // High freq beep for Keyword 1
+#define FREQ_STOP        500   // Low freq beep for Keyword 2
 
 namespace {
 const tflite::Model* model = nullptr;
@@ -44,8 +48,10 @@ constexpr int kTensorArenaSize = 50 * 1024;  // 50KB
 uint8_t tensor_arena[kTensorArenaSize];
 int8_t feature_buffer[kFeatureElementCount];
 int8_t* model_input_buffer = nullptr;
+
 }
 
+//Buzzer initialization function
 void buzzer_init() {
   ledc_timer_config_t ledc_timer = {
     .speed_mode       = LEDC_MODE,
@@ -68,6 +74,7 @@ void buzzer_init() {
   ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
 }
 
+//Buzzer tone setting function
 void buzzer_tone(uint32_t frequency, uint32_t duration_ms) {
   ledc_set_freq(LEDC_MODE, LEDC_TIMER, frequency);
   ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, LEDC_DUTY);
@@ -76,7 +83,6 @@ void buzzer_tone(uint32_t frequency, uint32_t duration_ms) {
   ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, 0);
   ledc_update_duty(LEDC_MODE, LEDC_CHANNEL);
 }
-
 void setup() {
   model = tflite::GetModel(g_model);
   if (model->version() != TFLITE_SCHEMA_VERSION) {
@@ -177,12 +183,11 @@ void setup() {
   gpio_config(&io_conf);
   gpio_set_level(kIndicatorGpio, 0);
   
-
+  oled_display_init();
   buzzer_init();
-  MicroPrintf("Buzzer ready on GPIO4");
+  MicroPrintf("Buzzer & OLED are ready");
   buzzer_tone(1000, 100);  // Test beep
   vTaskDelay(pdMS_TO_TICKS(100));
-  
   MicroPrintf("Setup complete - ready to detect keywords!");
 }
 
@@ -196,6 +201,18 @@ void loop() {
     return;
   }
   previous_time = current_time;
+  
+  // If inactivity is detected, refresh OLED
+  static int32_t last_alive_time = 0;
+  if (current_time - last_alive_time > 5000) {
+    
+    oled_display_clear();
+    oled_display_text(0, 10, "LISTENING...");
+    oled_display_text(0, 30, "Say your keyword!");
+    oled_display_update();
+    
+    last_alive_time = current_time;
+  }
   
   if (how_many_new_slices == 0) {
     return;
@@ -226,31 +243,85 @@ void loop() {
     }
   }
   
-  // Feel free to change this threshold value to get better result
-  if (max_result > 0.6f) {
-    MicroPrintf("Detected %7s, score: %.2f", kCategoryLabels[max_idx],
-                static_cast<double>(max_result));
-    
-    // ADD BUZZER CONTROL HERE
-    if (max_idx == 2) {
-      // Replace Keyword 1 Eg: GO = High beep
-      buzzer_tone(FREQ_GO, 300);
-      MicroPrintf("Keyword 1 - High beep!");
-    } else if (max_idx == 3) {
-      // Replace Keyword 2 Eg: STOP = Low beep
-      buzzer_tone(FREQ_STOP, 300);
-      MicroPrintf("Keyword 2 - Low beep!");
-    }
-    
-    int num_blinks = 0;
-    if (max_idx == 2) num_blinks = 1;      // First keyword
-    else if (max_idx == 3) num_blinks = 2; // Second keyword
-    
-    for (int i = 0; i < num_blinks; i++) {
-      gpio_set_level(kIndicatorGpio, 1);
-      vTaskDelay(pdMS_TO_TICKS(100));
-      gpio_set_level(kIndicatorGpio, 0);
-      vTaskDelay(pdMS_TO_TICKS(100));
+ 
+  float silence_score = (tflite::GetTensorData<int8_t>(output)[0] - output_zero_point) * output_scale;
+  float unknown_score = (tflite::GetTensorData<int8_t>(output)[1] - output_zero_point) * output_scale;
+
+  // Replace Keyword 1 Eg: GO and Keyword 2 Eg: STOP
+  float go_score = (tflite::GetTensorData<int8_t>(output)[2] - output_zero_point) * output_scale;
+  float stop_score = (tflite::GetTensorData<int8_t>(output)[3] - output_zero_point) * output_scale;
+  
+  
+  //Update counter every 100 loops to ensure OLED is working
+  static int oled_test_counter = 0;
+  if (++oled_test_counter % 100 == 0) {
+    char counter_msg[32];
+  oled_display_command(counter_msg, (uint8_t)((go_score + stop_score) * 50)); 
+  }
+  
+  if (max_result > 0.8f) {
+  //Adjust thresholds as needed
+  if (go_score > 0.8f || stop_score > 0.8f) {
+    if (go_score > stop_score) {
+    oled_display_clear();
+    oled_display_text(0, 0, "Detecting KW1...");
+    oled_display_update();
+    } else {
+    oled_display_clear();
+    oled_display_text(0, 0, "Detecting KW2...");
+    oled_display_update();
     }
   }
+  
+  if (max_idx == 2) {
+
+      // Replace Keyword 1 Eg: UP = High beep
+
+      buzzer_tone(FREQ_GO, 300);
+      oled_display_command("UP", (uint8_t)(max_result * 100));
+      MicroPrintf("<Keyword 1> - High beep!");
+
+    } else if (max_idx == 3) {
+
+      // Replace Keyword 2 Eg: DOWN = Low beep
+
+      buzzer_tone(FREQ_STOP, 300);
+      oled_display_command("DOWN", (uint8_t)(max_result * 100));
+      MicroPrintf("<Keyword 2> - Low beep!");
+    }
+  
+  //Recognize commands system is used for proper detection
+  const char* found_command = nullptr;
+  float score = 0.0f;
+  bool is_new_command = false;
+  TfLiteStatus process_status = recognizer->ProcessLatestResults(
+      output, current_time, &found_command, &score, &is_new_command);
+  if (process_status != kTfLiteOk) {
+    MicroPrintf("RecognizeCommands::ProcessLatestResults() failed");
+    return;
+  }
+  
+  //Update the display and respond to the command
+  RespondToCommand(current_time, found_command, score, is_new_command);
+  
+  int num_blinks = 0;
+
+    if (max_idx == 2) num_blinks = 1;      // First keyword
+
+    else if (max_idx == 3) num_blinks = 2; // Second keyword
+
+    
+
+    for (int i = 0; i < num_blinks; i++) {
+
+      gpio_set_level(kIndicatorGpio, 1);
+
+      vTaskDelay(pdMS_TO_TICKS(100));
+
+      gpio_set_level(kIndicatorGpio, 0);
+
+      vTaskDelay(pdMS_TO_TICKS(100));
+  
+  }
+}
 }
