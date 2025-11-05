@@ -51,6 +51,7 @@ int8_t* model_input_buffer = nullptr;
 
 }
 
+
 //Buzzer initialization function
 void buzzer_init() {
   ledc_timer_config_t ledc_timer = {
@@ -256,64 +257,58 @@ void loop() {
   // static int oled_test_counter = 0;
   // if (++oled_test_counter % 100 == 0) {
   //   char counter_msg[32];
-  // oled_display_command(counter_msg, (uint8_t)((go_score + stop_score) * 50)); 
+  //   oled_display_command(counter_msg, (uint8_t)((go_score + stop_score) * 50)); 
   // }
   
-  // if (max_result > 0.8f) {
-  // //Adjust thresholds as needed
-  // if (go_score > 0.8f || stop_score > 0.8f) {
-  //   if (go_score > stop_score) {
-  //   oled_display_clear();
-  //   oled_display_text(0, 0, "Detecting KW1...");
-  //   oled_display_update();
-  //   } else {
-  //   oled_display_clear();
-  //   oled_display_text(0, 0, "Detecting KW2...");
-  //   oled_display_update();
+  if (max_result > 0.8f) {
+  //   //Adjust thresholds as needed
+  //   if (go_score > 0.8f || stop_score > 0.8f) {
+  //     if (go_score > stop_score) {
+  //       oled_display_clear();
+  //       oled_display_text(0, 0, "Detecting KW1...");
+  //       oled_display_update();
+  //     } else {
+  //       oled_display_clear();
+  //       oled_display_text(0, 0, "Detecting KW2...");
+  //       oled_display_update();
+  //     }
   //   }
-  // }
-  
-  if (max_idx == 2) {
-
+    
+    if (max_idx == 2) {
       // Replace Keyword 1 Eg: UP = High beep
-
       buzzer_tone(FREQ_GO, 300);
       oled_display_command("UP", (uint8_t)(max_result * 100));
       MicroPrintf("<Keyword 1> - High beep!");
 
     } else if (max_idx == 3) {
-
       // Replace Keyword 2 Eg: DOWN = Low beep
-
       buzzer_tone(FREQ_STOP, 300);
       oled_display_command("DOWN", (uint8_t)(max_result * 100));
       MicroPrintf("<Keyword 2> - Low beep!");
     }
-  
-  //Recognize commands system is used for proper detection
-  const char* found_command = nullptr;
-  float score = 0.0f;
-  bool is_new_command = false;
-  TfLiteStatus process_status = recognizer->ProcessLatestResults(
-      output, current_time, &found_command, &score, &is_new_command);
-  if (process_status != kTfLiteOk) {
-    MicroPrintf("RecognizeCommands::ProcessLatestResults() failed");
-    return;
-  }
-  
-  //Update the display and respond to the command
-  RespondToCommand(current_time, found_command, score, is_new_command);
-  
-  int num_blinks = 0;
+    
+    //Recognize commands system is used for proper detection
+    const char* found_command = nullptr;
+    float score = 0.0f;
+    bool is_new_command = false;
+    TfLiteStatus process_status = recognizer->ProcessLatestResults(
+        output, current_time, &found_command, &score, &is_new_command);
+    if (process_status != kTfLiteOk) {
+      MicroPrintf("RecognizeCommands::ProcessLatestResults() failed");
+      return;
+    }
+    
+    //Update the display and respond to the command
+    RespondToCommand(current_time, found_command, score, is_new_command);
+    
+    int num_blinks = 0;
 
     if (max_idx == 2) num_blinks = 1;      // First keyword
 
     else if (max_idx == 3) num_blinks = 2; // Second keyword
 
-    
 
     for (int i = 0; i < num_blinks; i++) {
-
       gpio_set_level(kIndicatorGpio, 1);
 
       vTaskDelay(pdMS_TO_TICKS(100));
@@ -321,7 +316,6 @@ void loop() {
       gpio_set_level(kIndicatorGpio, 0);
 
       vTaskDelay(pdMS_TO_TICKS(100));
-  
+    }
   }
-}
 }
