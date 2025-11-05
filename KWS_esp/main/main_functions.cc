@@ -183,7 +183,7 @@ void setup() {
   gpio_config(&io_conf);
   gpio_set_level(kIndicatorGpio, 0);
   
-  oled_display_init();
+  // oled_display_init();
   buzzer_init();
   MicroPrintf("Buzzer & OLED are ready");
   buzzer_tone(1000, 100);  // Test beep
@@ -206,10 +206,10 @@ void loop() {
   static int32_t last_alive_time = 0;
   if (current_time - last_alive_time > 5000) {
     
-    oled_display_clear();
-    oled_display_text(0, 10, "LISTENING...");
-    oled_display_text(0, 30, "Say your keyword!");
-    oled_display_update();
+    // oled_display_clear();
+    // oled_display_text(0, 10, "LISTENING...");
+    // oled_display_text(0, 30, "Say your keyword!");
+    // oled_display_update();
     
     last_alive_time = current_time;
   }
@@ -253,25 +253,25 @@ void loop() {
   
   
   //Update counter every 100 loops to ensure OLED is working
-  static int oled_test_counter = 0;
-  if (++oled_test_counter % 100 == 0) {
-    char counter_msg[32];
-  oled_display_command(counter_msg, (uint8_t)((go_score + stop_score) * 50)); 
-  }
+  // static int oled_test_counter = 0;
+  // if (++oled_test_counter % 100 == 0) {
+  //   char counter_msg[32];
+  // oled_display_command(counter_msg, (uint8_t)((go_score + stop_score) * 50)); 
+  // }
   
-  if (max_result > 0.8f) {
-  //Adjust thresholds as needed
-  if (go_score > 0.8f || stop_score > 0.8f) {
-    if (go_score > stop_score) {
-    oled_display_clear();
-    oled_display_text(0, 0, "Detecting KW1...");
-    oled_display_update();
-    } else {
-    oled_display_clear();
-    oled_display_text(0, 0, "Detecting KW2...");
-    oled_display_update();
-    }
-  }
+  // if (max_result > 0.8f) {
+  // //Adjust thresholds as needed
+  // if (go_score > 0.8f || stop_score > 0.8f) {
+  //   if (go_score > stop_score) {
+  //   oled_display_clear();
+  //   oled_display_text(0, 0, "Detecting KW1...");
+  //   oled_display_update();
+  //   } else {
+  //   oled_display_clear();
+  //   oled_display_text(0, 0, "Detecting KW2...");
+  //   oled_display_update();
+  //   }
+  // }
   
   if (max_idx == 2) {
 
