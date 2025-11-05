@@ -1,0 +1,14 @@
+idf_component_register(
+    SRCS
+        "NeuralNetwork.cpp"
+        "model.cc"
+        "vww_runner.cpp"
+    PRIV_REQUIRES
+        esp32_camera
+        esp-tflite-micro
+        esp_timer
+        driver
+    INCLUDE_DIRS
+        "."
+        "include"
+        "include/vww")

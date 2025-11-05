@@ -1,0 +1,34 @@
+idf_component_register(
+    SRCS
+        "audio_provider.cc"
+        "command_responder.cc"
+        "feature_provider.cc"
+        "kws_runner.cc"
+        "main_functions.cc"
+        "micro_features_generator.cc"
+        "model.cc"
+        "no_micro_features_data.cc"
+        "oled_display.cc"
+        "recognize_commands.cc"
+        "ringbuf.c"
+        "yes_micro_features_data.cc"
+    PRIV_REQUIRES
+        driver
+        esp_common
+        esp_timer
+        esp_driver_gpio
+        esp_driver_i2c
+        spi_flash
+        test_data
+        esp-tflite-micro
+    INCLUDE_DIRS
+        "."
+        "include"
+        "include/kws")
+
+target_compile_options(${COMPONENT_LIB} PRIVATE
+    -Wno-maybe-uninitialized
+    -Wno-missing-field-initializers
+    -Wno-error=sign-compare
+    -Wno-error=double-promotion
+    -Wno-type-limits)

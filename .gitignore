@@ -14,9 +14,17 @@ TFLM_tutorial/.pio/
 TFLM_tutorial/managed_components/
 VWW/.vscode
 VWW/.pio
+multi-tenant/.vscode
+multi-tenant/.pio
+multi-tenant/dependencies.lock
+multi-tenant/esp-tflite-micro/
+multi-tenant/managed_components/
+multi-tenant/sdkconfig
+multi-tenant/sdkconfig.seeed_xiao_esp32s3
 
 # Optional, if you don’t want Git to track its own ignore file
 KWS_esp/.gitignore
 TFLM_tutorial/.gitignore
 VWW/.gitignore
+multi-tenant/.gitignore
 
