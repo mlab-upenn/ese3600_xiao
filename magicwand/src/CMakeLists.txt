@@ -1,0 +1,14 @@
+idf_component_register(
+    SRCS 
+        "main.cpp"
+        "constants.cpp"
+        "imu_provider.cpp"
+        "gesture_predictor.cpp"
+        "output_handler.cpp"
+        "rasterize.cpp"
+        "model_data.cc"
+    INCLUDE_DIRS 
+        "."
+    REQUIRES 
+        esp-tflite-micro
+)
