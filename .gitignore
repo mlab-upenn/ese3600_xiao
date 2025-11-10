@@ -21,10 +21,16 @@ multi-tenant/esp-tflite-micro/
 multi-tenant/managed_components/
 multi-tenant/sdkconfig
 multi-tenant/sdkconfig.seeed_xiao_esp32s3
+magicwand/.pio
+magicwand/.vscode
+magicwand/sdkconfig.xiao_magic_wand2
+magicwand/managed_components/
+magicwand/components/esp-tflite-micro/
+
 
 # Optional, if you don’t want Git to track its own ignore file
 KWS_esp/.gitignore
 TFLM_tutorial/.gitignore
 VWW/.gitignore
 multi-tenant/.gitignore
-
+magicwand/.gitignore
