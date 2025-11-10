@@ -18,10 +18,10 @@ constexpr int kInputTensorSize = kImageWidth * kImageHeight * kImageChannels;
 // I2C pins for XIAO ESP32-S3 (using the Grove connector)
 constexpr int kI2C_SDA = 5;  // GPIO5 - SDA
 constexpr int kI2C_SCL = 6;  // GPIO6 - SCL
-constexpr int kI2C_FREQ = 400000;  // 400kHz
+constexpr int kI2C_FREQ = 100000;  // 400kHz
 
 // ICM-20600 I2C address
-constexpr uint8_t kIMU_Address = 0x68; 
+constexpr uint8_t kIMU_Address = 0x69; 
 
 // ============================================================================
 // GESTURE CAPTURE CONFIGURATION
