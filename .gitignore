@@ -26,6 +26,8 @@ magicwand/.vscode
 magicwand/sdkconfig.xiao_magic_wand2
 magicwand/managed_components/
 magicwand/components/esp-tflite-micro/
+magicwand/dependencies.lock
+magicwand/g_model.tflite
 
 
 # Optional, if you don’t want Git to track its own ignore file
