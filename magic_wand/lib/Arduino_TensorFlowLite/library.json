@@ -1,0 +1,14 @@
+{
+  "name": "Arduino_TensorFlowLite",
+  "version": "2.4.0-ALPHA",
+  "description": "TensorFlow Lite for Microcontrollers (Arduino edition).",
+  "build": {
+    "srcFilter": [
+      "+<tensorflow/>",
+      "+<third_party/>",
+      "-<peripherals/>",
+      "-<test_over_serial/>"
+    ]
+  },
+  "dependencies": []
+}
