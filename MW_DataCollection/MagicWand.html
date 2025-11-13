@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Magic Wand – Simple Data Collector</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #f5f5f7;
+      color: #222;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.8rem;
+      font-weight: 600;
+    }
+    .subtitle {
+      margin-bottom: 16px;
+      color: #555;
+      font-size: 0.95rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+    }
+    button.secondary {
+      background: #6b7280;
+    }
+    button.danger {
+      background: #dc2626;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    select, input[type="text"] {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #d4d4d8;
+      font-size: 0.95rem;
+      min-width: 110px;
+    }
+    #status {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    #status.ok {
+      color: #16a34a;
+    }
+    #status.bad {
+      color: #dc2626;
+    }
+    #debug {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Roboto Mono", monospace;
+      font-size: 0.8rem;
+      background: #f3f4f6;
+      border-radius: 6px;
+      padding: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      white-space: pre-wrap;
+    }
+    #liveCanvas {
+      background: #f3f4f6;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      background: #e5e7eb;
+      color: #374151;
+      font-weight: 500;
+    }
+    .list {
+      max-height: 260px;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 6px;
+      background: #f9fafb;
+      font-size: 0.85rem;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 4px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .item:last-child {
+      border-bottom: none;
+    }
+    .label-pill {
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-weight: 500;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Magic Wand – Data Collector</h1>
+  <div class="subtitle">
+    Connect to your <strong>MagicWand</strong> board, record gestures, and export
+    <code>wanddata_*.json</code> compatible with the course Colab.
+  </div>
+
+  <!-- Connection card -->
+  <div class="card">
+    <h2>1. Device Connection</h2>
+    <div class="row">
+      <button id="btnConnect">Connect to MagicWand</button>
+      <button id="btnDisconnect" class="secondary">Disconnect</button>
+      <span id="status" class="bad">Not Connected</span>
+    </div>
+    <div id="debug">[log] Ready. Click “Connect to MagicWand”.</div>
+  </div>
+
+  <!-- Recording card -->
+  <div class="card">
+    <h2>2. Record a Gesture</h2>
+    <div class="row">
+      <label>
+        Gesture:
+        <select id="gestureSelect">
+          <option value="">-- Select --</option>
+          <option>0</option><option>1</option><option>2</option><option>3</option><option>4</option>
+          <option>5</option><option>6</option><option>7</option><option>8</option><option>9</option>
+          <option value="custom">/ Custom</option>
+        </select>
+      </label>
+      <input type="text" id="customLabel" placeholder="custom label" style="display:none;">
+      <button id="btnStart">Start Recording</button>
+      <button id="btnStop" class="secondary" style="display:none;">Stop</button>
+      <span id="recordInfo" class="badge">Idle</span>
+    </div>
+    <div style="margin-top:10px; text-align:center;">
+      <canvas id="liveCanvas" width="420" height="280"></canvas>
+    </div>
+  </div>
+
+  <!-- Summary / export -->
+  <div class="card">
+    <h2>3. Summary & Export</h2>
+    <div class="row">
+      <span id="summary" class="badge">0 samples</span>
+      <button id="btnExport">Download wanddata.json</button>
+      <button id="btnClear" class="danger">Clear All</button>
+    </div>
+    <div id="list" class="list"></div>
+  </div>
+
+<script>
+/* ==== CONFIG ==== */
+const DEVICE_NAME_PREFIX = "MagicWand";
+const SERVICE_UUID       = 0xFF00;
+const IMU_CHAR_UUID      = 0xFF01;  // notify: 9 float32 (ax..gz, mx,my,mz)
+const CTRL_CHAR_UUID     = 0xFF02;  // write: 0x01 start, 0x00 stop
+const EXPECTED_BYTES     = 24;
+
+const SAMPLE_DT   = 0.025; // 25 ms in firmware
+const DECIMATE_N  = 4;     // keep 1 of every 4 samples
+const ANGLE_NORM  = 90.0;  // ±90° → ±1.0
+
+/* ==== BLE Globals ==== */
+let device  = null;
+let server  = null;
+let service = null;
+let imuChar = null;
+let ctrlChar = null;
+
+/* ==== Recording State ==== */
+let isRecording    = false;
+let yawDeg         = 0;
+let pitchDeg       = 0;
+let sampleCount    = 0;
+let currentPoints  = [];  // {x,y,t}
+let strokes        = [];  // {index,label,strokePoints:[{x,y}]}
+let samplesSinceLog = 0;
+let lastLogTime     = 0;
+
+/* ==== DOM Helpers ==== */
+const $ = sel => document.querySelector(sel);
+
+function log(msg) {
+  const d = new Date().toLocaleTimeString();
+  const el = $("#debug");
+  el.textContent += `\n[${d}] ${msg}`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function setStatus(text, ok) {
+  const el = $("#status");
+  el.textContent = text;
+  el.className = ok ? "ok" : "bad";
+}
+
+function resetCanvas() {
+  const c = $("#liveCanvas");
+  const ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, c.width, c.height);
+  // center dot
+  ctx.fillStyle = "#9ca3af";
+  ctx.beginPath();
+  ctx.arc(c.width/2, c.height/2, 3, 0, 2*Math.PI);
+  ctx.fill();
+  ctx.strokeStyle = "#2563eb";
+  ctx.lineWidth   = 3;
+  ctx.lineCap     = "round";
+  ctx.lineJoin    = "round";
+}
+
+function toCanvasXY(x, y) {
+  const c = $("#liveCanvas");
+  const scale = 140;
+  const cx = c.width/2 + x * scale;
+  const cy = c.height/2 - y * scale; // up = +y
+  return [cx, cy];
+}
+
+function drawLivePoint(x, y) {
+  const [px, py] = toCanvasXY(x, y);
+  const c = $("#liveCanvas");
+  const ctx = c.getContext("2d");
+  if (currentPoints.length <= 1) {
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+  } else {
+    ctx.lineTo(px, py);
+    ctx.stroke();
+  }
+}
+
+/* ==== BLE Connect / Disconnect ==== */
+async function connectBLE() {
+  try {
+    log("Requesting Bluetooth device…");
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: DEVICE_NAME_PREFIX }],
+      optionalServices: [SERVICE_UUID]
+    });
+
+    device.addEventListener("gattserverdisconnected", onDisconnected);
+    server  = await device.gatt.connect();
+    service = await server.getPrimaryService(SERVICE_UUID);
+    imuChar = await service.getCharacteristic(IMU_CHAR_UUID);
+    ctrlChar = await service.getCharacteristic(CTRL_CHAR_UUID);
+
+    await imuChar.startNotifications();
+    imuChar.addEventListener("characteristicvaluechanged", onIMU);
+
+    setStatus(`Connected to ${device.name}`, true);
+    log(`Connected to ${device.name}`);
+    resetCanvas();
+    samplesSinceLog = 0;
+    lastLogTime = performance.now();
+  } catch (e) {
+    log("Connect failed: " + e.message);
+    setStatus("Not Connected", false);
+  }
+}
+
+function onDisconnected() {
+  log("Device disconnected.");
+  setStatus("Not Connected", false);
+  device = server = service = imuChar = ctrlChar = null;
+}
+
+function disconnectBLE() {
+  if (device && device.gatt.connected) {
+    device.gatt.disconnect();
+  }
+}
+
+/* ==== IMU Notification Handler ==== */
+function onIMU(event) {
+  const dv = new DataView(event.target.value.buffer);
+  const nBytes = dv.byteLength;
+
+  // Always log the packet length so we KNOW something is coming in
+  log(`IMU packet received: ${nBytes} bytes`);
+
+  samplesSinceLog++;
+
+  // If we get LESS than 24 bytes, we truly can't parse gx/gy/gz → just bail
+  if (nBytes < 24) {
+    return;
+  }
+
+  // Parse up to 6 floats (ax..gz). If our firmware sends 9 floats (36 bytes),
+  // the extra mx,my,mz will simply be ignored here.
+  const ax = dv.getFloat32(0,  true);
+  const ay = dv.getFloat32(4,  true);
+  const az = dv.getFloat32(8,  true);
+  const gx = dv.getFloat32(12, true);
+  const gy = dv.getFloat32(16, true);
+  const gz = dv.getFloat32(20, true);
+
+  if (!isRecording) {
+    // Useful visual indicator that packets are coming in even when not recording
+    $("#recordInfo").textContent = "Packets arriving (not recording)";
+    return;
+  }
+  log("USING -x-y ORIENTATION");
+
+  // integrate gyro → yaw/pitch in degrees
+  yawDeg   += gz * SAMPLE_DT;
+  pitchDeg += gy * SAMPLE_DT;
+  sampleCount++;
+
+  if (sampleCount % DECIMATE_N === 0) {
+    let x = yawDeg   / ANGLE_NORM;
+    let y = pitchDeg / ANGLE_NORM;
+    x = Math.max(-1, Math.min(1, x));
+    y = Math.max(-1, Math.min(1, y));
+
+    // ---- apply rotation here ----
+    const xr = x;   
+    const yr = -y;
+    // -----------------------------
+
+    currentPoints.push({ x: xr, y: yr, t: Date.now() });
+    drawLivePoint(xr, yr);
+    $("#recordInfo").textContent = `Recording • ${currentPoints.length} pts`;
+  }
+}
+
+/* ==== Recording controls ==== */
+async function startRecording() {
+  if (!device || !device.gatt || !device.gatt.connected) {
+    alert("Connect to MagicWand first.");
+    return;
+  }
+  const sel = $("#gestureSelect").value;
+  let label = sel === "custom" ? $("#customLabel").value.trim() : sel;
+  if (!label) {
+    alert("Select a gesture or enter a custom label.");
+    return;
+  }
+
+  try {
+    // tell board to start streaming
+    await ctrlChar.writeValue(new Uint8Array([1]));
+    log("Sent start-stream (0x01)");
+  } catch (e) {
+    log("Failed to send start-stream: " + e.message);
+  }
+
+  isRecording   = true;
+  yawDeg        = 0;
+  pitchDeg      = 0;
+  sampleCount   = 0;
+  currentPoints = [];
+  resetCanvas();
+
+  $("#btnStart").style.display = "none";
+  $("#btnStop").style.display  = "inline-block";
+  $("#recordInfo").textContent = "Recording…";
+  startRecording.currentLabel  = label;
+}
+
+async function stopRecording() {
+  if (!isRecording) return;
+
+  try {
+    await ctrlChar.writeValue(new Uint8Array([0]));
+    log("Sent stop-stream (0x00)");
+  } catch (e) {
+    log("Failed to send stop-stream: " + e.message);
+  }
+
+  isRecording = false;
+  $("#btnStart").style.display = "inline-block";
+  $("#btnStop").style.display  = "none";
+
+  if (currentPoints.length === 0) {
+    $("#recordInfo").textContent = "No data recorded.";
+    return;
+  }
+
+  // compress points down to {x,y}, assign index & label
+  const label = String(startRecording.currentLabel || "");
+  const strokePoints = currentPoints.map(p => ({ x: p.x, y: p.y }));
+  const index = strokes.length;
+
+  strokes.push({ index, strokePoints, label });
+  $("#recordInfo").textContent =
+    `Saved "${label}" • ${strokePoints.length} pts`;
+  updateSummaryAndList();
+
+  // reset numeric state
+  yawDeg = pitchDeg = 0;
+  sampleCount = 0;
+  currentPoints = [];
+}
+
+function updateSummaryAndList() {
+  $("#summary").textContent = `${strokes.length} samples`;
+
+  const list = $("#list");
+  if (strokes.length === 0) {
+    list.textContent = "No samples recorded yet.";
+    return;
+  }
+
+  list.innerHTML = "";
+  strokes.forEach(s => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div>
+        <span class="label-pill">${s.label}</span>
+        <span style="margin-left:8px; color:#6b7280;">
+          index ${s.index}, ${s.strokePoints.length} pts
+        </span>
+      </div>
+      <button class="danger" style="padding:3px 10px; font-size:0.8rem;"
+        onclick="deleteStroke(${s.index})">Delete</button>`;
+    list.appendChild(div);
+  });
+}
+
+function deleteStroke(idx) {
+  const i = strokes.findIndex(s => s.index === idx);
+  if (i < 0) return;
+  if (!confirm(`Delete sample index ${idx} ("${strokes[i].label}")?`)) return;
+  strokes.splice(i, 1);
+  // reindex to keep 0..N-1
+  strokes.forEach((s, k) => { s.index = k; });
+  updateSummaryAndList();
+}
+
+function clearAll() {
+  if (!confirm("Clear ALL recorded samples?")) return;
+  strokes = [];
+  updateSummaryAndList();
+  $("#recordInfo").textContent = "All data cleared. Idle.";
+  resetCanvas();
+  log("Cleared all strokes.");
+}
+
+/* ==== Export wanddata_x.json ==== */
+function exportWanddata() {
+  if (strokes.length === 0) {
+    alert("No samples recorded.");
+    return;
+  }
+  const data = {
+    strokes: strokes.map(s => ({
+      index: s.index,
+      strokePoints: s.strokePoints,
+      label: String(s.label)
+    }))
+  };
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const date = new Date().toISOString().slice(0,10);
+  a.download = `wanddata_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  log(`Exported ${strokes.length} strokes → wanddata JSON.`);
+}
+
+/* ==== Wire up UI ==== */
+$("#btnConnect").addEventListener("click", connectBLE);
+$("#btnDisconnect").addEventListener("click", disconnectBLE);
+$("#btnStart").addEventListener("click", startRecording);
+$("#btnStop").addEventListener("click", stopRecording);
+$("#btnExport").addEventListener("click", exportWanddata);
+$("#btnClear").addEventListener("click", clearAll);
+
+$("#gestureSelect").addEventListener("change", (e) => {
+  const showCustom = e.target.value === "custom";
+  $("#customLabel").style.display = showCustom ? "inline-block" : "none";
+});
+
+setStatus("Not Connected", false);
+resetCanvas();
+updateSummaryAndList();
+</script>
+</body>
+</html>
