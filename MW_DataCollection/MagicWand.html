@@ -349,9 +349,14 @@ function onIMU(event) {
     x = Math.max(-1, Math.min(1, x));
     y = Math.max(-1, Math.min(1, y));
 
+    // shrink everything into the Pete-compatible range [-0.6, +0.6]
+    const SCALE = 0.6;
+    x *= SCALE;
+    y *= SCALE;
+
     // ---- apply rotation here ----
-    const xr = x;   
-    const yr = -y;
+    const xr =  x;   // yaw → horizontal
+    const yr = -y;  // pitch → vertical
     // -----------------------------
 
     currentPoints.push({ x: xr, y: yr, t: Date.now() });
