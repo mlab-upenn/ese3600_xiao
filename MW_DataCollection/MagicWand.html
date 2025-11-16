@@ -313,7 +313,7 @@ function onIMU(event) {
   const nBytes = dv.byteLength;
 
   // Always log the packet length so we KNOW something is coming in
-  log(`IMU packet received: ${nBytes} bytes`);
+  //log(`IMU packet received: ${nBytes} bytes`);
 
   samplesSinceLog++;
 
@@ -336,7 +336,7 @@ function onIMU(event) {
     $("#recordInfo").textContent = "Packets arriving (not recording)";
     return;
   }
-  log("USING -x-y ORIENTATION");
+  //log("USING -x-y ORIENTATION");
 
   // integrate gyro → yaw/pitch in degrees
   yawDeg   += gz * SAMPLE_DT;
@@ -350,9 +350,9 @@ function onIMU(event) {
     y = Math.max(-1, Math.min(1, y));
 
     // shrink everything into the Pete-compatible range [-0.6, +0.6]
-    const SCALE = 0.6;
-    x *= SCALE;
-    y *= SCALE;
+    //const SCALE = 0.6;
+    //x *= SCALE;
+    //y *= SCALE;
 
     // ---- apply rotation here ----
     const xr =  x;   // yaw → horizontal
