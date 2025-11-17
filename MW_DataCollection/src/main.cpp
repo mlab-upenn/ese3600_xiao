@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <NimBLEDevice.h>
+#include <NimBLEAdvertisementData.h>
 
 // ---------- I2C pins & ICM20600 config ----------
 #define I2C_SDA 5     // working pins for your Xiao ESP32S3
@@ -136,6 +137,10 @@ void setup() {
 
   auto adv = NimBLEDevice::getAdvertising();
   adv->addServiceUUID(SVC_UUID);
+  NimBLEAdvertisementData scanResp;
+  scanResp.setName("MagicWand");
+  adv->setScanResponseData(scanResp);
+  adv->setName("MagicWand");
   adv->start();
   Serial.println("[BLE] Advertising as MagicWand with svc 0xFF00");
 }
