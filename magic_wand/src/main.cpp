@@ -89,8 +89,8 @@ alignas(16) uint8_t tensor_arena[kTensorArenaSize];
 const tflite::Model*         model       = nullptr;
 tflite::MicroInterpreter*    interpreter = nullptr;
 
-constexpr int label_count = 7;
-const char* labels[label_count] = {"0","1","2","3","4","5","6"};
+constexpr int label_count = 10;
+const char* labels[label_count] = {"0","1","2","3","4","5","6","7","8","9"};
 
 // ======== HTML-STYLE INTEGRATOR CONSTANTS =========
 constexpr float kSampleDtSec   = 0.025f;  // SAMPLE_DT
