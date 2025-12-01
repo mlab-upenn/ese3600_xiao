@@ -14,6 +14,7 @@
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
+#include "tensorflow/lite/micro/all_ops_resolver.h"
 
 #include "imu_provider.h"
 #include "magic_wand_model_data.h"
@@ -83,7 +84,7 @@ int32_t* stroke_transmit_length = reinterpret_cast<int32_t*>(stroke_struct_buffe
 int8_t*  stroke_points          = reinterpret_cast<int8_t*>(stroke_struct_buffer + (sizeof(int32_t) * 2));
 
 // TensorFlow Lite Micro
-constexpr int kTensorArenaSize = 25 * 1024;
+constexpr int kTensorArenaSize = 80 * 1024;
 alignas(16) uint8_t tensor_arena[kTensorArenaSize];
 
 const tflite::Model*         model       = nullptr;
@@ -370,11 +371,7 @@ void setup() {
     return;
   }
 
-  static tflite::MicroMutableOpResolver<4> micro_op_resolver;
-  micro_op_resolver.AddConv2D();
-  micro_op_resolver.AddMean();
-  micro_op_resolver.AddFullyConnected();
-  micro_op_resolver.AddSoftmax();
+static tflite::AllOpsResolver micro_op_resolver;
 
   static tflite::MicroInterpreter static_interpreter(
       model, micro_op_resolver, tensor_arena, kTensorArenaSize);
