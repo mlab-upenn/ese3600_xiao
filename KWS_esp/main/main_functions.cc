@@ -184,7 +184,7 @@ void setup() {
   gpio_config(&io_conf);
   gpio_set_level(kIndicatorGpio, 0);
   
-  // oled_display_init();
+  oled_display_init();
   buzzer_init();
   MicroPrintf("Buzzer & OLED are ready");
   buzzer_tone(1000, 100);  // Test beep
@@ -207,10 +207,10 @@ void loop() {
   static int32_t last_alive_time = 0;
   if (current_time - last_alive_time > 5000) {
     
-    // oled_display_clear();
-    // oled_display_text(0, 10, "LISTENING...");
-    // oled_display_text(0, 30, "Say your keyword!");
-    // oled_display_update();
+    oled_display_clear();
+    oled_display_text(0, 10, "LISTENING...");
+    oled_display_text(0, 30, "Say your keyword!");
+    oled_display_update();
     
     last_alive_time = current_time;
   }
